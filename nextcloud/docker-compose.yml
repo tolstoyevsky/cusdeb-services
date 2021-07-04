@@ -1,26 +1,54 @@
-version: "2"
+version: "3.7"
 services:
-  nextcloud:
-    image: cusdeb/nextcloud:14RC2-amd64
-    command: /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
+  frontend:
+    image: cusdeb/nextcloud:21-amd64
     environment:
-    - PORT=8001
-    - DB_HOST=127.0.0.1:33061
-    - DB_NAME=cusdeb
-    - DB_USERNAME=root
-    - DB_PASSWORD=cusdeb
-    network_mode: "host"
+    - TYPE=frontend
+    ports:
+    - 8001:8001
+  backend:
+    image: cusdeb/nextcloud:21-amd64
+    environment:
+    - TYPE=backend
+    - PM_MAX_CHILDREN=${PM_MAX_CHILDREN}
+    - PM_START_SERVERS=${PM_START_SERVERS}
+    - PM_MIN_SPARE_SERVERS=${PM_MIN_SPARE_SERVERS}
+    - PM_MAX_SPARE_SERVERS=${PM_MAX_SPARE_SERVERS}
     volumes:
-    - /srv/nextcloud/config.php:/var/www/nc/config/config.php
-    - /srv/nextcloud/data:/var/www/nc/data/
-    - /srv/nextcloud/data/nginx:/var/log/nginx/
-    - /srv/nextcloud/data/supervisor:/var/log/supervisor/
-  memcached:
-    image: cusdeb/memcached:1.5.10-amd64
-    network_mode: "host"
+    - ./_config:/var/www/nc/config
+    - ./_nc/data:/var/www/nc/data
+  news_updater:
+    image: cusdeb/nextcloud:21-amd64
     environment:
-    - PORT=11212
-    - BIND=127.0.0.1
-    - MEM_LIMIT=64
-    - CON_LIMIT=1024
+    - TYPE=news_updater
+    volumes:
+    - ./_config:/var/www/nc/config
+    - ./_nc/data:/var/www/nc/data
+  notify_push:
+    image: cusdeb/notify_push:0.2.0-amd64
+    environment:
+    - NEXTCLOUD_URL=http://frontend:8001
+    volumes:
+    - ./_config:/config
+  mariadb:
+    image: cusdeb/mariadb:10.5-amd64
+    environment:
+    - MYSQLD_bind_address=mariadb
+    - MYSQLD_innodb_file_per_table=1
+    - MYSQL_DATABASE=nc
+    - MYSQL_ROOT_PASSWORD=secret
+    volumes:
+    - ./_db:/var/lib/mysql
+  redis:
+    image: cusdeb/redis:6.0-amd64
+    environment:
+    - BIND=redis
+    - PORT=6379
+    - REDIS_CONF_maxmemory=512mb
+    - REDIS_CONF_maxmemory_policy=allkeys-lru
+    - REDIS_CONF_tcp_keepalive=0
+    # Disable AOF
+    - REDIS_CONF_appendonly=no
+    # Disable RDB
+    - REDIS_CONF_save=
 

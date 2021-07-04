@@ -1,105 +1,153 @@
-FROM cusdeb/stretch:amd64
+FROM alpine:3.13
 MAINTAINER Evgeny Golyshev <eugulixes@gmail.com>
 
-ENV BOOKMARKS_VERSION v0.12.1
-ENV CALENDAR_VERSION v1.6.1
-ENV CONTACTS_VERSION v2.1.6
-ENV NEXTCLOUD_VERSION v14.0.0RC2
-ENV OCSMS_VERSION 1.13.1
-ENV NOTES_VERSION v2.4.1
-ENV SPREED_VERSION v3.99.12
-ENV TERM linux
+ENV BOOKMARKS_VER v4.2.1
 
-COPY ./fix_phantomjs_on_armv7l.sh /usr/bin/fix_phantomjs_on_armv7l.sh
+ENV CALENDAR_VER v2.2.2
 
-RUN apt-get update && apt-get install -y \
-    apt-transport-https \
-    build-essential \
+ENV CONTACTS_VER v3.5.1
+
+ENV DECK_VER v1.4.2
+
+ENV NEWS_VER 16.0.0
+
+ENV NEWS_UPDATER_VER 11.0.0
+
+ENV NEXTCLOUD_VER v21.0.3
+
+ENV NOTES_VER v4.0.4
+
+ENV NOTIFY_PUSH_VER v0.2.0
+
+ENV PASSMAN_VER 2.3.8
+
+ENV PHOTO_SPHERE_VIEWER_VER v1.21.1
+
+ENV SPREED_VER v11.3.0
+
+ENV TASKS_VER v0.13.6
+
+ENV INSTALL_DEPS_FOR "/var/www/nc/apps2/bookmarks /var/www/nc/apps2/deck /var/www/nc/apps2/files_photospheres /var/www/nc/apps2/news"
+
+ENV BUILD_JS_FOR "/var/www/nc /var/www/nc/apps2/bookmarks /var/www/nc/apps2/calendar /var/www/nc/apps2/contacts /var/www/nc/apps2/deck /var/www/nc/apps2/files_photospheres/js /var/www/nc/apps2/news/js /var/www/nc/apps2/notes /var/www/nc/apps2/notifications /var/www/nc/apps2/passman /var/www/nc/apps2/photos /var/www/nc/apps2/spreed /var/www/nc/apps2/tasks /var/www/nc/apps2/viewer"
+
+# For building the Spreed app
+ENV NODE_OPTIONS "--max-old-space-size=6144"
+
+COPY ./patches /patches
+
+RUN echo http://mirror.yandex.ru/mirrors/alpine/v3.13/community >> /etc/apk/repositories \
+ && apk --update add \
+    bash \
+    composer \
     curl \
+    g++ \
     git \
-    gnupg2 \
-    less \
     make \
-    nano \
     nginx \
+    npm \
     patch \
-    php-apcu \
-    php-curl \
-    php-gd \
-    php-fpm \
-    php-ldap \
-    php-mbstring \
-    php-memcached \
-    php-mysql \
-    php-xml \
-    php-zip \
+    php7 \
+ # required modules
+    php7-ctype \
+    php7-curl \
+    php7-dom \
+    php7-fpm \
+    php7-gd \
+    php7-iconv \
+    php7-json \
+    php7-mbstring \
+    php7-openssl \
+    # for nextcloud-news-updater
+    php7-pcntl \
+    php7-pdo \
+    php7-pdo_mysql \
+    php7-posix \
+    php7-session \
+    php7-simplexml \
+    php7-tokenizer \
+    php7-xml \
+    php7-xmlreader \
+    php7-xmlwriter \
+    php7-zip \
+ # recommended modules
+    php7-bcmath \
+    php7-fileinfo \
+    php7-gmp \
+    php7-intl \
+    php7-opcache \
+    php7-pecl-apcu \
+    php7-pecl-imagick \
+    php7-pecl-redis \
+    \
+    python3 \
+    py3-pip \
+    # For nextcloud-news-updater to run it as nginx user
     sudo \
-    supervisor \
-    wget \
-    cron \
- && /usr/bin/fix_phantomjs_on_armv7l.sh \
- # Install Node.js
- && wget -qO- https://deb.nodesource.com/setup_8.x | sudo bash - \
- && apt-get install nodejs \
- # Install yarn
- && wget -qO - https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - \
- && echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list \
- && apt-get update && apt-get install -y yarn \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/* \
+ && mkdir /run/nginx \
+ && cd /usr/bin \
+ && curl -O https://raw.githubusercontent.com/tolstoyevsky/mmb/master/utils/change_ini_param.py \
+ && chmod +x /usr/bin/change_ini_param.py \
  # Install Nextcloud
  && cd /var/www \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/server.git nc \
+ && git clone -b "${NEXTCLOUD_VER}" --depth 1 https://github.com/nextcloud/server.git nc \
  && cd /var/www/nc \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/3rdparty.git \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/apps.git apps2 \
- && cd /var/www/nc/apps2 \
- && git clone -b $CALENDAR_VERSION  --depth 1 https://github.com/nextcloud/calendar.git \
- && git clone -b $CONTACTS_VERSION  --depth 1 https://github.com/nextcloud/contacts.git \
- && git clone -b $BOOKMARKS_VERSION --depth 1 https://github.com/nextcloud/bookmarks.git \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/files_pdfviewer.git \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/files_videoplayer.git \
- && rm -r /var/www/nc/apps2/files_videoviewer \
- && rm -r /var/www/nc/apps2/files_odfviewer \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/notifications.git \
- && git clone -b $OCSMS_VERSION     --depth 1 https://github.com/nextcloud/ocsms.git \
- && git clone -b $NOTES_VERSION     --depth 1 https://github.com/nextcloud/notes.git \
- && git clone -b $NEXTCLOUD_VERSION --depth 1 https://github.com/nextcloud/gallery.git \
- && git clone -b $SPREED_VERSION    --depth 1 https://github.com/nextcloud/spreed.git \
- && chown -R www-data:www-data /var/www \
- # Install the latest bower.
- # Helps to solver the issue:
- # EINVRES Request to https://bower.herokuapp.com/packages/angular failed with 502
- && cd /var/www/nc/apps2/calendar/js && sudo -u www-data npm install bower \
- && cd ..          && sudo -u www-data make \
- && cd ../contacts && sudo -u www-data make \
+ # Patch Nextcloud
+ && mv /patches /var/www/nc/patches \
+ && for patch in $(cat patches/series); do patch -p1 < patches/"${patch}"; done \
+ # Install apps
+ && git clone -b "${NEXTCLOUD_VER}" --depth 1 https://github.com/nextcloud/3rdparty.git \
+ && mkdir apps2 && cd apps2 \
+ && git clone -b "${BOOKMARKS_VER}"           --depth 1 https://github.com/nextcloud/bookmarks.git \
+ && git clone -b "${CALENDAR_VER}"            --depth 1 https://github.com/nextcloud/calendar.git \
+ && git clone -b "${CONTACTS_VER}"            --depth 1 https://github.com/nextcloud/contacts.git \
+ && git clone -b "${DECK_VER}"                --depth 1 https://github.com/nextcloud/deck.git \
+ && git clone -b "${NEXTCLOUD_VER}"           --depth 1 https://github.com/nextcloud/files_pdfviewer.git \
+ && git clone -b "${PHOTO_SPHERE_VIEWER_VER}" --depth 1 https://github.com/nextcloud/files_photospheres.git \
+ && git clone -b "${NEXTCLOUD_VER}"           --depth 1 https://github.com/nextcloud/files_rightclick.git \
+ && git clone -b "${NEWS_VER}"                --depth 1 https://github.com/nextcloud/news.git \
+ && git clone -b "${NOTES_VER}"               --depth 1 https://github.com/nextcloud/notes.git \
+ && git clone -b "${NEXTCLOUD_VER}"           --depth 1 https://github.com/nextcloud/notifications.git \
+ && git clone -b "${NOTIFY_PUSH_VER}"         --depth 1 https://github.com/nextcloud/notify_push.git \
+ && git clone -b "${PASSMAN_VER}"             --depth 1 https://github.com/nextcloud/passman.git \
+ && git clone -b "${NEXTCLOUD_VER}"           --depth 1 https://github.com/nextcloud/photos.git \
+ && git clone -b "${SPREED_VER}"              --depth 1 https://github.com/nextcloud/spreed.git \
+ && git clone -b "${TASKS_VER}"               --depth 1 https://github.com/nextcloud/tasks.git \
+ && git clone -b "${NEXTCLOUD_VER}"           --depth 1 https://github.com/nextcloud/viewer.git \
+ \
+ && for dir in ${INSTALL_DEPS_FOR}; do cd "${dir}"; composer install --no-dev; done \
+ \
+ # Remove /var/www/nc/core/js/dist to rebuild it later to reflect the changes in
+ # hide-unnecessary-blocks-on-installation-page.patch 
+ && rm -r /var/www/nc/core/js/dist \
+ \
+ && for dir in ${BUILD_JS_FOR}; do cd "${dir}"; npm ci; npm run svg_sprite 2> /dev/null || true; npm run build; rm -rf node_modules; done \
+ \
+ && chown -R nginx:nginx /var/www \
+ \
+ && pip3 install nextcloud-news-updater=="${NEWS_UPDATER_VER}" \
  # Cleanup
- && rm -r /var/www/.cache \
- && rm -r /var/www/.node-gyp \
- && rm -r /var/www/.npm \
- && rm -r /var/www/nc/apps2/calendar/js/node_modules \
- && rm -r /var/www/nc/apps2/contacts/node_modules \
- && /usr/bin/fix_phantomjs_on_armv7l.sh \
- && apt-get purge -y \
-    apt-transport-https \
-    build-essential \
+ && apk del \
     curl \
     git \
-    gnupg2 \
+    g++ \
     make \
-    wget \
-    nodejs \
-    yarn \
- && apt-get autoremove -y
+    npm \
+    py3-pip \
+ && rm -r /root/.cache/Cypress \
+ && rm -r /usr/lib/node_modules \
+ && rm -r /var/cache/apk/* \
+ && rm -r /var/www/nc/node_modules
 
-COPY ./patches /var/www/nc/patches
-COPY ./rollout_fixes.sh /usr/bin/rollout_fixes.sh
+COPY ./config/avoid-security-or-privacy-risks.conf /etc/nginx/avoid-security-or-privacy-risks.conf
 
-COPY ./config/cron /tmp/cron
-COPY ./config/default /etc/nginx/sites-available/default
-COPY ./config/www.conf /etc/php/7.0/fpm/pool.d/www.conf
-COPY ./config/supervisord.conf /etc/supervisor/supervisord.conf
-COPY ./run_nginx.sh /usr/bin/run_nginx.sh
+COPY ./config/add-misc-headers.conf /etc/nginx/add-misc-headers.conf
 
-RUN /usr/bin/rollout_fixes.sh
-RUN crontab -u www-data /tmp/cron
+COPY ./config/default /etc/nginx/conf.d/default.conf
+
+COPY ./docker-entrypoint.sh /entrypoint.sh
+
+WORKDIR /var/www/nc
+
+CMD ["/entrypoint.sh"]
+
